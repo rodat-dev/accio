@@ -8,7 +8,7 @@ import rollupBabel from "@rollup/plugin-babel";
 import terser from "@rollup/plugin-terser";
 
 export function bundleJavascript(scripts) {
-    return through2.obj(function (file, _, cb) {
+    return through2.obj(async function (file, _, cb) {
         if (!file.isBuffer) {
             cb(null, file);
             return;
@@ -16,8 +16,7 @@ export function bundleJavascript(scripts) {
 
         const dom = new JSDOM(file.contents.toString());
         const document = dom.window.document;
-        Promise.all([
-            // Bundling scripts with Rollup
+        await Promise.all([
             Promise.all(
                 scripts.map(script =>
                     rollup({
@@ -40,8 +39,6 @@ export function bundleJavascript(scripts) {
                     )
                 )
             ),
-
-            // Modifying HTML and adding the scripts
             Promise.all(
                 scripts.map(script => {
                     const scriptFilename = upath.basename(script);
@@ -57,7 +54,8 @@ export function bundleJavascript(scripts) {
                     return addToManifest(MANIFEST, "/" + scriptFilename);
                 })
             )
-        ]).then(() => cb(null, file))
+        ])
+        .then(() => cb(null, file))
         .catch(err => cb(err, null));
     });
 }

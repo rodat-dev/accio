@@ -98,18 +98,18 @@ export class GoogleFont extends Font {
  * @param {string} manifest - the manifest name
  * if undefined the fonts are not added to the manifest
  */
-function addFontsToHead(fonts, manifest) {
+export default function addFontsToHead(fonts, manifest) {
     return through2.obj(async function(file, _, cb) {
         if(file.isBuffer) {
             let manifestStream;
             const dom = new JSDOM(file.contents.toString());    
             const document = dom.window.document;
             
-            for(const f of fonts) {
+            await Promise.all(fonts.map(f => {
                 f.addPreconnectLinks(document);
                 f.addFont(document);
-                await addToManifest(manifest, f.fontLink);
-            }
+                return addToManifest(manifest, f.fontLink);
+            }));
 
             if(manifestStream) manifestStream.pipe(gulp.dest(DIST));
             file.contents = Buffer.from(dom.serialize());
@@ -117,5 +117,3 @@ function addFontsToHead(fonts, manifest) {
         cb(null, file);
     });
 }
-
-export default addFontsToHead;

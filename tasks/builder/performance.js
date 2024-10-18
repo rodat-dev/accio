@@ -12,8 +12,11 @@ import replace from "@rollup/plugin-replace";
 import rollupBabel from "@rollup/plugin-babel";
 import terser from "@rollup/plugin-terser";
 
-export function addServiceWorker() {
-    return through2.obj(function(file, _, cb) {
+export function addServiceWorker(swWorkerPath, swWorkerInstallPath) {
+    swWorkerPath = swWorkerPath ?? SW;
+    swWorkerInstallPath = swWorkerInstallPath ?? SW_INSTALL;
+
+    return through2.obj(async function(file, _, cb) {
         if(!file.isBuffer) {
             cb(null, file);
             return;
@@ -21,14 +24,14 @@ export function addServiceWorker() {
 
         const dom = new JSDOM(file.contents.toString());
         const document = dom.window.document;
-        const swFilename = upath.basename(SW);
-        const swInstallFilename = upath.basename(SW_INSTALL);
+        const swFilename = upath.basename(swWorkerPath);
+        const swInstallFilename = upath.basename(swWorkerInstallPath);
 
-        Promise.all([
+        await Promise.all([
             new Promise((resolve, reject) => {
                 const manifestJson = fs.readFileSync(upath.resolve(DIST, MANIFEST), { encoding: "utf-8" });
                 rollup({
-                    input: SW,
+                    input: swWorkerPath,
                     plugins: [
                         rollupBabel({
                             presets: ["@babel/preset-env"],
@@ -53,7 +56,7 @@ export function addServiceWorker() {
             }),
             new Promise((resolve, reject) => {
                 rollup({
-                    input: SW_INSTALL,
+                    input: swWorkerInstallPath,
                     plugins: [
                         rollupBabel({
                             presets: ["@babel/preset-env"],
@@ -98,8 +101,9 @@ export function addServiceWorker() {
     });
 }
 
-export function addSpeculationRules() {
-    return through2.obj(function(file, _, cb) {
+export function addSpeculationRules(specRulesPath) {
+    specRulesPath = specRulesPath ?? SPECRULES;
+    return through2.obj(async function(file, _, cb) {
         if(!file.isBuffer) {
             cb(null, file);
             return;
@@ -108,20 +112,20 @@ export function addSpeculationRules() {
         const dom = new JSDOM(file.contents.toString());    
         const document = dom.window.document;
 
-        Promise.all([
+        await Promise.all([
             new Promise((resolve, reject) => {
-            gulp.src(SPECRULES)
-                .pipe(babel())
-                .pipe(GulpUglify())
-                .pipe(gulp.dest(DIST))
-                .on("finish", resolve)
-                .on("error", reject);
+                gulp.src(specRulesPath)
+                    .pipe(babel())
+                    .pipe(GulpUglify())
+                    .pipe(gulp.dest(DIST))
+                    .on("finish", resolve)
+                    .on("error", reject);
             }),
             new Promise((resolve, reject) => {
                 try {
                     const script = document.createElement("script");
                     script.type = "module";
-                    script.src = upath.basename(SPECRULES);
+                    script.src = upath.basename(specRulesPath);
                     document.body.append(script);
                     file.contents = Buffer.from(dom.serialize());
                     resolve();
@@ -131,7 +135,7 @@ export function addSpeculationRules() {
                 }
             }),
             new Promise((resolve, reject) => {
-                addToManifest(MANIFEST, "/" + upath.basename(SPECRULES))
+                addToManifest(MANIFEST, "/" + upath.basename(specRulesPath))
                     .then(resolve)
                     .catch(reject);
             })  

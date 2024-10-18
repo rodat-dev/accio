@@ -19,7 +19,7 @@ import { addToManifest } from "../common.js";
  * @returns 
  */
 export function addStylesToHead(stylesheets, options) {
-    return through2.obj(function (file, _, cb) {
+    return through2.obj(async function (file, _, cb) {
         if (file.isBuffer) {
             const { preprocess, postprocess, minify, dist, manifest } = options;
             const dom = new JSDOM(file.contents.toString());
@@ -83,7 +83,7 @@ export function addStylesToHead(stylesheets, options) {
             });
 
             // Ensure all streams have finished before completing the task
-            Promise.all(tasks)
+            await Promise.all(tasks)
                 .then(() => cb(null, file))
                 .catch(err => cb(err));
         } else {

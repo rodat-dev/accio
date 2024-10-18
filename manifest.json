@@ -1,0 +1,8 @@
+{
+    "/index.html": "/index.html",
+    "/index.js": "/index.js",
+    "/index.min.js": "/index.min.js",
+    "/index.css": "/index.css",
+    "/sw.js": "/sw.js",
+    "/speculationrules.js": "/speculationrules.js"
+}

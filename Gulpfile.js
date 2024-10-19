@@ -38,15 +38,13 @@ gulp.task("watch:sass", function(cb) {
     cb();
 });
 
-gulp.task("compress:all", function(cb) {
-    gulp.series("compress:css", "compress:html");
-    cb();
-})
+gulp.task("compress:all", gulp.series("compress:css", "compress:html"));
 
 export default gulp.series(
     "init:clean",
     "fetch:normalize",
     "build:sass",
     "pwa:gen-manifest",
+    "compress:all",
     "watch:sass"
 );

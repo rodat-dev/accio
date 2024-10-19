@@ -1,79 +1,52 @@
-'use strict;'
-import { deleteAsync } from "del";
 import gulp from "gulp";
-import fs from "node:fs";
-import process from "node:process";
-import addFontsToHead, { GoogleFont } from "./tasks/builder/fonts.js";
-import { addStylesToHead } from "./tasks/builder/styles.js";
-import { addServiceWorker, addSpeculationRules } from "./tasks/builder/performance.js";
-import { DIST } from "./tasks/constants.js";
-import { bundleJavascript } from "./tasks/builder/javascript.js";
-import "./tasks/builder/manifest.js";
-import { generateBaseManifest } from "./tasks/builder/manifest.js";
+import { deleteAsync } from "del";
+import compressWithBrotli from "./tasks/gulp/compress.js";
+import { buildCss, buildSass } from "./tasks/gulp/styles.js";
+import gulpImport from "./tasks/gulp/fetch.js";
+import generateManifest from "./tasks/gulp/manifest.js";
 
-const NORMALIZECSS_LINK = "https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.css";
-const STYLES_ROOT = "./src/styles/";
+gulp.task("init:clean", function() {
+    return deleteAsync(["dist/**/*"]);
+})
 
-gulp.task("init:cleanup", async function(cb) {
-  await deleteAsync(["build/**/*", "dist/**/*"]);
-  cb();
+gulp.task("build:sass", function() {
+    return buildSass("src/styles/**/*.{sass,scss}", "dist/");
 });
 
-gulp.task("build:manifest-base", generateBaseManifest);
-
-gulp.task("css:normalize", async function(cb) {
-  const maybeContents = fs.existsSync(STYLES_ROOT + "modern-normalize.css");
-  if(!maybeContents || maybeContents.length === 0) {
-    const ncssResponse = await fetch(NORMALIZECSS_LINK, { method: "GET" });
-    if(!ncssResponse.ok) {
-      console.error(`error fetching CSS normalize: ${ncssResponse.statusText}`);
-      process.exit(1);
-    }
-    console.info("successfully fetched normalize.css...");
-    fs.writeFileSync(STYLES_ROOT + "modern-normalize.css", await ncssResponse.text());
-  }
-  cb();
+gulp.task("build:css", function() {
+    return buildCss("src/styles/**/*.css", "dist/");
 });
 
-gulp.task("build:index", function() {
-  return gulp.src("src/pages/index.html")
-    .pipe( addFontsToHead([
-        new GoogleFont("family=Agdasima:wght@400;700")
-      ], "manifest.json")
-    )
-    .pipe(
-      addStylesToHead([{ sheet: "src/styles/index.sass", isCritical: true }], {
-        manifest: "manifest.json",
-        preprocess: "sass",
-        postprocess: "postcss",
-        dist: DIST,
-        minify: true
-      })
-    )
-    .pipe(addSpeculationRules())
-    .pipe(addServiceWorker())
-    .pipe(bundleJavascript([
-      "src/index.js"
-    ]))
-    .pipe(gulp.dest(DIST))
+gulp.task("fetch:normalize", function() {
+    return gulpImport("https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.css", "src/styles/", "normalize.css");
 });
 
-gulp.task("app:watch-index", function(cb) {
-  gulp.watch(
-    STYLES_ROOT + "**/*.{sass,scss}",
-    gulp.series("build:index")
-  );
-  gulp.watch(
-    "src/**/*.js",
-    gulp.series("build:index")
-  );
-  cb();
+gulp.task("compress:css", function() {
+    return compressWithBrotli("dist/*.css", "dist/");
 });
+
+gulp.task("compress:html", function() {
+    return compressWithBrotli("dist/*.html", "dist/");
+});
+
+gulp.task("pwa:gen-manifest", function() {
+    return generateManifest(["/index.css", "/index.html", "/index.js"], "dist/", "src/pages/**/*.html");
+});
+
+gulp.task("watch:sass", function(cb) {
+    gulp.watch("src/styles/**/*.{sass,scss}", gulp.series("build:sass"));
+    cb();
+});
+
+gulp.task("compress:all", function(cb) {
+    gulp.series("compress:css", "compress:html");
+    cb();
+})
 
 export default gulp.series(
-  "init:cleanup",
-  "css:normalize",
-  "build:manifest-base",
-  "build:index",
-  "app:watch-index"
+    "init:clean",
+    "fetch:normalize",
+    "build:sass",
+    "pwa:gen-manifest",
+    "watch:sass"
 );
